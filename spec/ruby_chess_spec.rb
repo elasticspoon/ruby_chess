@@ -8,9 +8,15 @@ describe BoardLocation do
   subject(:test_location) { described_class.new(2, 2) }
 
   describe '#parse string' do
-    it 'returns array of expected values if string valid' do
-      expected_values = [3, 4]
-      returned_values = test_location.parse_string('d5')
+    it 'returns [7, 4] if e8' do
+      expected_values = [7, 4]
+      returned_values = test_location.parse_string('e8')
+      expect(returned_values).to eql expected_values
+    end
+
+    it 'returns [1, 3] if d2' do
+      expected_values = [1, 3]
+      returned_values = test_location.parse_string('d2')
       expect(returned_values).to eql expected_values
     end
 
@@ -131,6 +137,11 @@ describe Pawn do
         piece_end_location = BoardLocation.new([1, 0])
         expect(test_piece.valid_move?(piece_start_location, piece_end_location)).to be true
       end
+      it 'returns true for [2, 1]' do
+        piece_start_location = BoardLocation.new([1, 2])
+        piece_end_location = BoardLocation.new([1, 0])
+        expect(test_piece.valid_move?(piece_start_location, piece_end_location)).to be true
+      end
       it 'returns false for [2, 1]' do
         piece_start_location = BoardLocation.new([1, 1])
         piece_end_location = BoardLocation.new([2, 1])
@@ -166,6 +177,17 @@ describe Pawn do
     it 'returns calls piece_moves' do
       expect(test_piece).to receive(:piece_moves)
       test_piece.get_current_moves(0, 0)
+    end
+  end
+end
+
+describe ChessBoard do
+  subject(:test_game) { described_class.new }
+  context '#check_loc' do
+    it 'returns the correct piece' do
+      expected_piece = Pawn.new(:white)
+      returned_piece = test_game.check_loc('e2')
+      expect(returned_piece).to eq expected_piece
     end
   end
 end

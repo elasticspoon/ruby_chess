@@ -1,235 +1,131 @@
 # frozen_string_literal: true
 
-# defines single vertical movement
-module VerticalMovement
-  def vert_moves
-    [0, 1, 1, -1].permutation(2).filter { |x, y| x.zero? || y.zero? }.uniq
-  end
-end
+require_relative 'piece_movement'
+require_relative 'board_location'
+require_relative 'chess_pieces'
 
-# defines single diagonal movement
-module DiagonalMovement
-  def diag_moves
-    [1, -1].repeated_permutation(2).uniq
-  end
-end
+class ChessGame
+  attr_reader :chess_board
 
-module KnightMovement
-  def knight_moves
-    [-2, -1, 1, 2].permutation(2).filter { |x, y| x.abs != y.abs }
-  end
-end
-
-class ChessPiece
-  BOARD_SIZE = 8
-  attr_reader :piece_moves, :piece_type, :piece_color, :has_moved
-
-  def initialize(piece_color = :black)
-    @piece_moves = arrays_to_locations(set_piece_moves)
-    @piece_color = piece_color
-    @has_moved = false
+  def initialize
+    @chess_board = ChessBoard.new
+    @white_turn = true
   end
 
-  def arrays_to_locations(array)
-    array.map { |move| BoardLocation.new(move) }
+  def white_turn
+    @white_turn = !@white_turn
+    !@white_turn
   end
 
-  def board_legal?(location)
-    location = BoardLocation.new(location)
-    (0...BOARD_SIZE).include?(location.x) && (0...BOARD_SIZE).include?(location.y)
+  def parse_input(player_input)
+    matcher = player_input.downcase.match(/^([a-h][1-8])\s*([a-h][1-8])$/)
+    return false if matcher.nil?
+
+    [BoardLocation.new(matcher[1]), BoardLocation.new(matcher[2])]
   end
 
-  def set_piece_moves
-    nil
-  end
-
-  def set_max_move_distance(one_tile_moves, max_move_dist)
-    max_dist_tile_moves = (0...max_move_dist).inject([]) do |accum, move_dist|
-      max_dist_move = one_tile_moves.map { |one_tile_move| one_tile_move * move_dist }
-      accum + max_dist_move
+  def turn_loop
+    loop do
+      puts 'Input a move in a1 b2 format.'
+      input = parse_input(gets.chomp)
+      next unless input
+      break if chess_board.turn_attempt(input)
     end
-    max_dist_tile_moves.uniq
   end
 
-  def get_current_moves(*start_loc)
-    start_loc = BoardLocation.new(start_loc)
-    all_moves = piece_moves.map { |move| start_loc + move }
-    all_moves.filter { |move| board_legal?(move) }
+  def game_loop
+    puts 'Play Chess:'
+    loop do
+      puts chess_board
+      puts "#{@white_turn ? 'White' : 'Black'} turn:"
+      turn_loop
+      white_turn
+    end
+  end
+end
+
+class ChessBoard
+  attr_reader :board
+
+  def initialize
+    @board = starting_board
   end
 
-  def valid_take?(start_loc, end_loc)
-    valid_move?(start_loc, end_loc)
+  def check_loc(location)
+    location = BoardLocation.new(location)
+    board[location.x][location.y]
   end
 
-  def valid_move?(start_loc, end_loc)
-    start_loc = BoardLocation.new(start_loc)
-    end_loc = BoardLocation.new(end_loc)
-    potential_moves = get_current_moves(start_loc)
-    return nil unless potential_moves
+  def turn_attempt(turn_array)
+    move_start = BoardLocation.new(turn_array[0])
+    move_end = BoardLocation.new(turn_array[1])
+    return false if check_loc(move_start).nil?
+    return piece_take(move_start, move_end) unless check_loc(move_end).nil?
 
-    potential_moves.include?(end_loc)
+    piece_move(move_start, move_end)
   end
 
-  def moved
-    @has_moved = true
+  def piece_move(move_start, move_end)
+    piece = check_loc(move_start)
+    return false unless piece.valid_move?(move_start, move_end)
+
+    remove_piece(move_start)
+    place_piece(move_end, piece)
+    true
   end
 
-  def black?
-    piece_color == :black
+  def piece_take(move_start, move_end)
+    piece = check_loc(move_start)
+    return false unless piece.valid_take?(move_start, move_end)
+
+    remove_piece(move_start)
+    place_piece(move_end, piece)
+    true
+  end
+
+  def remove_piece(location)
+    board[location.x][location.y] = nil
+  end
+
+  def place_piece(location, piece)
+    piece.moved
+    board[location.x][location.y] = piece
+  end
+
+  def starting_board
+    accum = Array.new(4) { Array.new(8) { nil } }
+    pawn_row_b = Array.new(8) { Pawn.new }
+    pawn_row_w = Array.new(8) { Pawn.new(:white) }
+    row_two_b = generate_bot_row
+    row_two_w = generate_bot_row(:white)
+    accum.prepend(pawn_row_w).prepend(row_two_w).append(pawn_row_b).append(row_two_b)
+  end
+
+  def generate_bot_row(color = :black)
+    start = [Rook.new(color), Knight.new(color), Bishop.new(color)]
+    mid = [Queen.new(color), King.new(color)]
+    start + mid + start.reverse
+  end
+
+  def piece_array_to_s(array)
+    array.map { |val| val.nil? ? ' ' : val.to_s }.join(' ')
   end
 
   def to_s
-    piece_color == :black ? piece_type.upcase : piece_type.downcase
+    temp = board.reverse.each_with_index.map { |val, i| "#{8 - i} |" + piece_array_to_s(val) }.join("\n")
+    temp + "\n   _______________\n   a b c d e f g h"
   end
 end
 
-class Rook < ChessPiece
-  include VerticalMovement
-  def initialize(piece_color = :black)
-    super(piece_color)
-    @piece_type = black? ? "\u265C" : "\u2656"
-  end
-
-  def set_piece_moves
-    single_dist_moves = vert_moves
-    set_max_move_distance(single_dist_moves, BOARD_SIZE)
-  end
-end
-
-class Pawn < ChessPiece
-  attr_reader :piece_takes
-
-  def initialize(piece_color = :black)
-    super(piece_color)
-    @piece_takes = arrays_to_locations(set_piece_takes)
-    @piece_type = black? ? "\u265F" : "\u2659"
-    @en_passant = false
-  end
-
-  def set_piece_moves
-    return [[0, 1]] if !black? && has_moved
-    return [[0, 2], [0, 1]] if !black? && !has_moved
-    return [[0, -1]] if black? && has_moved
-    return [[0, -2], [0, -1]] if black? && !has_moved
-  end
-
-  def set_piece_takes
-    return [[1, -1], [-1, -1]] if black?
-    return [[1, 1], [-1, 1]] unless black?
-  end
-
-  def valid_take?(start_loc, end_loc)
-    start_loc = BoardLocation.new(start_loc)
-    end_loc = BoardLocation.new(end_loc)
-    potential_moves = get_current_takes(start_loc)
-    return nil unless potential_moves
-
-    potential_moves.include?(end_loc)
-  end
-
-  def get_current_takes(*start_loc)
-    start_loc = BoardLocation.new(start_loc)
-    all_moves = piece_takes.map { |move| move + start_loc }
-    all_moves.filter { |move| board_legal?(move) }
-  end
-end
-
-class Knight < ChessPiece
-  include KnightMovement
-  def initialize(piece_color = :black)
-    super(piece_color)
-    @piece_type = black? ? "\u265E" : "\u2658"
-  end
-
-  def set_piece_moves
-    knight_moves
-  end
-end
-
-class Bishop < ChessPiece
-  include DiagonalMovement
-  def initialize(piece_color = :black)
-    super(piece_color)
-    @piece_type = black? ? "\u265D" : "\u2657"
-  end
-
-  def set_piece_moves
-    single_dist_moves = diag_moves
-    set_max_move_distance(single_dist_moves, BOARD_SIZE)
-  end
-end
-
-class Queen < ChessPiece
-  include DiagonalMovement
-  include VerticalMovement
-  def initialize(piece_color = :black)
-    super(piece_color)
-    @piece_type = black? ? "\u265B" : "\u2655"
-  end
-
-  def set_piece_moves
-    single_dist_moves = vert_moves + diag_moves
-    set_max_move_distance(single_dist_moves, BOARD_SIZE)
-  end
-end
-
-class King < ChessPiece
-  include DiagonalMovement
-  include VerticalMovement
-  def initialize(piece_color = :black)
-    super(piece_color)
-    @piece_type = black? ? "\u265A" : "\u2654"
-  end
-
-  def set_piece_moves
-    single_dist_moves = vert_moves + diag_moves
-    set_max_move_distance(single_dist_moves, 1)
-  end
-end
-
-class BoardLocation
-  attr_reader :x, :y
-
-  def initialize(*args)
-    location = parse_location_input(args)
-    raise Error, 'location err' unless location
-
-    @x = location[0]
-    @y = location[1]
-  end
-
-  def parse_string(string)
-    matched_string = string.chomp.upcase.match(/^([A-H])([1-8])$/)
-    return false unless matched_string
-
-    row = matched_string[1].ord - 65
-    col = matched_string[2].to_i - 1
-
-    [row, col]
-  end
-
-  def parse_location_input(input_arr)
-    input_arr = input_arr.flatten
-    return [input_arr[0].x, input_arr[0].y] if input_arr[0].is_a?(BoardLocation)
-    return parse_string(input_arr[0]) if input_arr[0].is_a?(String)
-    return [input_arr[0], input_arr[1]] if input_arr.all?(Integer)
-
-    false
-  end
-
-  def ==(other)
-    x == other.x && y == other.y
-  end
-
-  def +(other)
-    BoardLocation.new(x + other.x, y + other.y)
-  end
-
-  def *(other)
-    BoardLocation.new(x * other, y * other)
-  end
-end
-
-rook = Pawn.new
-rook.valid_move?([4, 4], [-1, -1])
-rook.valid_move?([1, 0], [0, 0])
+game = ChessGame.new
+game.game_loop
+# puts BoardLocation.new('e2').inspect
+# game = ChessGame.new
+# puts game
+# game.turn_attempt('e2', 'e4')
+# game.turn_attempt('e7', 'e5')
+# game.turn_attempt('f1', 'c4')
+# game.turn_attempt('f8', 'c5')
+# game.turn_attempt('b2', 'b4')
+# game.turn_attempt('c5', 'b4')
+# puts game
