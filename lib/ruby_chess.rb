@@ -25,13 +25,18 @@ class ChessPiece
   attr_reader :piece_moves, :piece_type, :piece_color, :has_moved
 
   def initialize(piece_color = :black)
-    @piece_moves = set_piece_moves
+    @piece_moves = arrays_to_locations(set_piece_moves)
     @piece_color = piece_color
     @has_moved = false
   end
 
-  def board_legal?(row, col)
-    (0...BOARD_SIZE).include?(row) && (0...BOARD_SIZE).include?(col)
+  def arrays_to_locations(array)
+    array.map { |move| BoardLocation.new(move) }
+  end
+
+  def board_legal?(location)
+    location = BoardLocation.new(location)
+    (0...BOARD_SIZE).include?(location.x) && (0...BOARD_SIZE).include?(location.y)
   end
 
   def set_piece_moves
@@ -40,26 +45,29 @@ class ChessPiece
 
   def set_max_move_distance(one_tile_moves, max_move_dist)
     max_dist_tile_moves = (0...max_move_dist).inject([]) do |accum, move_dist|
-      max_dist_move = one_tile_moves.map { |one_tile_move| one_tile_move.map { |val| val * move_dist } }
+      max_dist_move = one_tile_moves.map { |one_tile_move| one_tile_move * move_dist }
       accum + max_dist_move
     end
     max_dist_tile_moves.uniq
   end
 
-  def get_current_moves(start_row, start_col)
-    all_moves = piece_moves.map { |row, col| [row + start_row, col + start_col] }
-    all_moves.filter { |row, col| board_legal?(row, col) }
+  def get_current_moves(*start_loc)
+    start_loc = BoardLocation.new(start_loc)
+    all_moves = piece_moves.map { |move| start_loc + move }
+    all_moves.filter { |move| board_legal?(move) }
   end
 
-  def valid_take?(start_move, end_move)
-    valid_move?(start_move, end_move)
+  def valid_take?(start_loc, end_loc)
+    valid_move?(start_loc, end_loc)
   end
 
-  def valid_move?(start_move, end_move)
-    potential_moves = get_current_moves(start_move[0], start_move[1])
+  def valid_move?(start_loc, end_loc)
+    start_loc = BoardLocation.new(start_loc)
+    end_loc = BoardLocation.new(end_loc)
+    potential_moves = get_current_moves(start_loc)
     return nil unless potential_moves
 
-    potential_moves.include?([end_move[0], end_move[1]])
+    potential_moves.include?(end_loc)
   end
 
   def moved
@@ -93,7 +101,7 @@ class Pawn < ChessPiece
 
   def initialize(piece_color = :black)
     super(piece_color)
-    @piece_takes = set_piece_takes
+    @piece_takes = arrays_to_locations(set_piece_takes)
     @piece_type = black? ? "\u265F" : "\u2659"
     @en_passant = false
   end
@@ -110,16 +118,19 @@ class Pawn < ChessPiece
     return [[1, 1], [-1, 1]] unless black?
   end
 
-  def valid_take?(start_move, end_move)
-    potential_moves = get_current_takes(start_move[0], start_move[1])
+  def valid_take?(start_loc, end_loc)
+    start_loc = BoardLocation.new(start_loc)
+    end_loc = BoardLocation.new(end_loc)
+    potential_moves = get_current_takes(start_loc)
     return nil unless potential_moves
 
-    potential_moves.include?([end_move[0], end_move[1]])
+    potential_moves.include?(end_loc)
   end
 
-  def get_current_takes(start_row, start_col)
-    all_moves = piece_takes.map { |row, col| [row + start_row, col + start_col] }
-    all_moves.filter { |row, col| board_legal?(row, col) }
+  def get_current_takes(*start_loc)
+    start_loc = BoardLocation.new(start_loc)
+    all_moves = piece_takes.map { |move| move + start_loc }
+    all_moves.filter { |move| board_legal?(move) }
   end
 end
 
@@ -198,14 +209,24 @@ class BoardLocation
   end
 
   def parse_location_input(input_arr)
-    return parse_string(input_arr[0]) if input_arr.length == 1 && input_arr[0].is_a?(String)
-    return [input_arr[0], input_arr[1]] if input_arr.length == 2 && input_arr.all?(Integer)
+    input_arr = input_arr.flatten
+    return [input_arr[0].x, input_arr[0].y] if input_arr[0].is_a?(BoardLocation)
+    return parse_string(input_arr[0]) if input_arr[0].is_a?(String)
+    return [input_arr[0], input_arr[1]] if input_arr.all?(Integer)
 
     false
   end
 
   def ==(other)
     x == other.x && y == other.y
+  end
+
+  def +(other)
+    BoardLocation.new(x + other.x, y + other.y)
+  end
+
+  def *(other)
+    BoardLocation.new(x * other, y * other)
   end
 end
 
