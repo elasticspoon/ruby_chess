@@ -168,6 +168,85 @@ describe ChessPiece do
       end
     end
   end
+
+  context '#is_castling' do
+    before do
+      allow(test_piece).to receive_messages(black?: is_black, is_a?: self_is_rook_king, loc: start_location)
+    end
+
+    let(:stubbed_piece) do
+      instance_double(ChessPiece, is_a?: target_is_rook_king,
+                                  black?: is_black, has_moved: move_status, nil?: is_nil)
+    end
+    let(:is_nil) { true }
+    let(:target_is_rook_king) { true }
+    let(:self_is_rook_king) { true }
+    let(:is_black) { true }
+    let(:move_status) { false }
+    let(:fake_board) { [[test_piece, nil, nil, stubbed_piece]] }
+    let(:end_location) { BoardLocation.new(0, 3) }
+    let(:start_location) { BoardLocation.new(0, 0) }
+
+    context '#is_castling' do
+      context 'when some piece is not nil' do
+        it 'returns false' do
+          fake_board[0][2] = 5
+          returned_val = test_piece.is_castling?(end_location, fake_board)
+          expect(returned_val).to be false
+        end
+      end
+      context 'when no pieces between king/rook' do
+        let(:fake_board) { [[stubbed_piece, test_piece]] }
+        let(:end_location) { BoardLocation.new(0, 1) }
+        it 'returns empty board' do
+          returned_val = test_piece.is_castling?(end_location, fake_board)
+          expect(returned_val).to eq(fake_board[0])
+        end
+      end
+      context 'when target has moved' do
+        let(:move_status) { true }
+        it 'returns false' do
+          allow(test_piece).to receive(:has_moved).and_return(false)
+          returned_val = test_piece.is_castling?(end_location, fake_board)
+          expect(returned_val).to be false
+        end
+      end
+      context 'when self has moved' do
+        it 'returns false' do
+          allow(test_piece).to receive(:has_moved).and_return(true)
+          returned_val = test_piece.is_castling?(end_location, fake_board)
+          expect(returned_val).to be false
+        end
+      end
+
+      context 'when either pieces class are incorrect' do
+        let(:self_is_rook_king) { false }
+        it 'returns false' do
+          returned_val = test_piece.is_castling?(end_location, fake_board)
+          expect(returned_val).to be false
+        end
+      end
+
+      context 'when all conditions met, pieces between all nil' do
+        it 'returns the whole board if king and rook on ends' do
+          returned_val = test_piece.is_castling?(end_location, fake_board)
+          expected_val = fake_board[0]
+          expect(returned_val).to eq(expected_val)
+        end
+        context 'when rook and king not on edges' do
+          let(:start_location) { BoardLocation.new(0, 1) }
+          let(:end_location) { BoardLocation.new(0, 4) }
+
+          it 'returns part of the board if they not on ends' do
+            centered_board = [5] + fake_board[0] + [nil]
+            returned_val = test_piece.is_castling?(end_location, [centered_board])
+            expected_val = fake_board[0]
+            expect(returned_val).to eq(expected_val)
+          end
+        end
+      end
+    end
+  end
 end
 
 describe Rook do

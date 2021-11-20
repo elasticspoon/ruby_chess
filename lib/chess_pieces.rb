@@ -1,7 +1,7 @@
 class ChessPiece
   include TwoDCopy
   BOARD_SIZE = 8
-  attr_reader :piece_moves, :piece_type, :piece_color, :has_moved, :valid_takes, :valid_moves, :game_state
+  attr_reader :piece_moves, :piece_type, :piece_color, :has_moved, :valid_takes, :valid_moves
   attr_accessor :loc
 
   def initialize(piece_color = :black)
@@ -41,6 +41,7 @@ class ChessPiece
   def more_piece_crap(game_board, legal_moves = [], legal_takes = [])
     piece_moves.each do |direction|
       direction = direction.map { |move| board_legal?(loc + move) ? loc + move : nil }.compact
+      # puts game_board if loc == BoardLocation.new('a8')
       direction.each do |move|
         target = game_board[move.x][move.y]
         unless target.nil?
@@ -53,14 +54,27 @@ class ChessPiece
     [legal_moves.flatten, legal_takes.flatten]
   end
 
-  def state_updates(piece_takes, piece_moves, game_board)
+  def is_castling?(end_loc, game_board)
+    target = game_board[end_loc.x][end_loc.y]
+    return false unless target&.black? == black? && !target.has_moved && !has_moved
+
+    return false unless (target.is_a?(King) && is_a?(Rook)) || (target.is_a?(Rook) && is_a?(King))
+
+    (start_loc, end_loc) = [loc, end_loc].sort { |a, b| a.y <=> b.y }
+    pieces_between = game_board[start_loc.x][start_loc.y..end_loc.y]
+
+    return false unless pieces_between[1...-1].all?(&:nil?)
+
+    (start_loc.y..end_loc.y).map { |index| BoardLocation.new([start_loc.x, index]) }
+  end
+
+  def state_updates(piece_takes, piece_moves, _game_board)
     @valid_takes = piece_takes
     @valid_moves = piece_moves
-    @game_state = game_board
   end
 
   def valid_action?(end_loc, game_board)
-    update_legal_moves(game_board) # if game_board != self&.game_state
+    update_legal_moves(game_board)
     valid_take?(end_loc) || valid_move?(end_loc)
   end
 
@@ -151,6 +165,34 @@ class Pawn < ChessPiece
       legal_moves.push(move) if game_board[move.x][move.y].nil?
     end
     legal_moves
+  end
+
+  def promote
+    return false unless loc.x.zero? || loc.x == 7
+
+    new_piece = promotion_dialog
+    new_piece.loc = loc
+    new_piece
+  end
+
+  def promotion_dialog
+    val = nil
+    loop do
+      puts 'Enter Q, B, K or R to promote pawn to.'
+      val = gets.chomp
+      break if val.match(/^[qQrRKkBb]$/)
+    end
+
+    case val
+    when /[qQ]/
+      black? ? Queen.new : Queen.new(:white)
+    when /[rR]/
+      black? ? Rook.new : Rook.new(:white)
+    when /[Kk]/
+      black? ? Knight.new : Knight.new(:white)
+    when /[bB]/
+      black? ? Bishop.new : Bishop.new(:white)
+    end
   end
 end
 
