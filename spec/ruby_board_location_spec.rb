@@ -91,6 +91,12 @@ describe BoardLocation do
   end
 
   describe '#==' do
+    it 'returns false if other is not a board location' do
+      loc_one = BoardLocation.new('a1')
+      loc_two = 'j'
+      expect(loc_one == loc_two).to be false
+    end
+
     it 'returns true if boardlocations have same x and y' do
       loc_one = BoardLocation.new(2, 2)
       loc_two = BoardLocation.new(2, 2)

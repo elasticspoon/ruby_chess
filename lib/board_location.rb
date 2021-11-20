@@ -29,6 +29,8 @@ class BoardLocation
   end
 
   def ==(other)
+    return false unless other.is_a?(BoardLocation)
+
     x == other.x && y == other.y
   end
 
@@ -40,12 +42,12 @@ class BoardLocation
     BoardLocation.new(x * other, y * other)
   end
 
-  def -(other)
-    x_vals = x < other.x ? (x..other.x).to_a : (other.x..x).to_a.reverse
-    y_vals = y < other.y ? (y..other.y).to_a : (other.y..y).to_a.reverse
-    combined = x_vals.empty? ? y_vals.zip(x_vals) : x_vals.zip(y_vals)
-    combined.map { |arr| BoardLocation.new(arr[0] || 0, arr[1] || 0) }[1...-1]
-  end
+  #   def -(other)
+  #     x_vals = x < other.x ? (x..other.x).to_a : (other.x..x).to_a.reverse
+  #     y_vals = y < other.y ? (y..other.y).to_a : (other.y..y).to_a.reverse
+  #     combined = x_vals.empty? ? y_vals.zip(x_vals) : x_vals.zip(y_vals)
+  #     combined.map { |arr| BoardLocation.new(arr[0] || 0, arr[1] || 0) }[1...-1]
+  #   end
 
   def to_s
     (y + 97).chr + (x + 1).to_s
