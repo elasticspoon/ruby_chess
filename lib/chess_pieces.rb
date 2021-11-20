@@ -33,15 +33,13 @@ class ChessPiece
   end
 
   def update_legal_moves(game_board)
-    (legal_moves, legal_takes) = more_piece_crap(game_board)
-    state_updates(legal_takes, legal_moves, game_board)
+    (legal_moves, legal_takes) = calc_legal_actions(game_board)
+    state_updates(legal_takes, legal_moves)
   end
 
-  # PLEASE THINK OF A BETTER NAME
-  def more_piece_crap(game_board, legal_moves = [], legal_takes = [])
+  def calc_legal_actions(game_board, legal_moves = [], legal_takes = [])
     piece_moves.each do |direction|
       direction = direction.map { |move| board_legal?(loc + move) ? loc + move : nil }.compact
-      # puts game_board if loc == BoardLocation.new('a8')
       direction.each do |move|
         target = game_board[move.x][move.y]
         unless target.nil?
@@ -68,7 +66,7 @@ class ChessPiece
     (start_loc.y..end_loc.y).map { |index| BoardLocation.new([start_loc.x, index]) }
   end
 
-  def state_updates(piece_takes, piece_moves, _game_board)
+  def state_updates(piece_takes, piece_moves)
     @valid_takes = piece_takes
     @valid_moves = piece_moves
   end
@@ -126,7 +124,6 @@ class Pawn < ChessPiece
     @piece_moves = arrays_to_locations(set_piece_moves)
     @piece_takes = arrays_to_locations(set_piece_takes)
     @piece_type = black? ? "\u2659" : "\u265F"
-    @en_passant = false
   end
 
   def set_piece_moves
@@ -144,7 +141,7 @@ class Pawn < ChessPiece
   def update_legal_moves(game_board)
     legal_moves = get_legal_moves(game_board)
     legal_takes = get_legal_takes(game_board)
-    state_updates(legal_takes, legal_moves, game_board)
+    state_updates(legal_takes, legal_moves)
   end
 
   def get_legal_takes(game_board, legal_takes = [])
@@ -152,7 +149,9 @@ class Pawn < ChessPiece
       move = loc + move
       next unless board_legal?(move)
 
-      legal_takes.push(move) unless game_board[move.x][move.y].nil?
+      target = game_board[move.x][move.y]
+
+      legal_takes.push(move) unless target.nil? || target.black? == black?
     end
     legal_takes
   end
@@ -207,13 +206,15 @@ class Knight < ChessPiece
     arrays_to_locations(knight_moves)
   end
 
-  def more_piece_crap(game_board, legal_moves = [], legal_takes = [])
+  def calc_legal_actions(game_board, legal_moves = [], legal_takes = [])
     piece_moves.each do |move|
       move = loc + move
       next unless board_legal?(move)
 
-      legal_moves.push(move) if game_board[move.x][move.y].nil?
-      legal_takes.push(move) unless game_board[move.x][move.y].nil?
+      target = game_board[move.x][move.y]
+
+      legal_moves.push(move) if target.nil?
+      legal_takes.push(move) if !target.nil? && target.black? != black?
     end
     [legal_moves, legal_takes]
   end

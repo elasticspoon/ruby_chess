@@ -118,5 +118,5 @@ class ChessGame
   end
 end
 
-game = ChessGame.new
-puts game.game_start
+# game = ChessGame.new
+# puts game.game_start
